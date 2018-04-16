@@ -1,13 +1,19 @@
 package in.co.jaypatel.dressselector;
 
+import android.Manifest;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.PersistableBundle;
+import android.support.annotation.NonNull;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
+import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentStatePagerAdapter;
+import android.support.v4.content.ContextCompat;
 import android.support.v4.view.PagerAdapter;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
@@ -45,7 +51,7 @@ public class DashboardActivity extends AppCompatActivity implements SlideFragmen
     private ViewPager mViewPager;
     public static int numberOfSlides = 1;
     public static HashMap<Integer,Dress> dressMap = new HashMap<>();
-    int currentSlideNumber = 0;
+    public static int currentSlideNumber = 0;
     public static Context context;
 
     ImageButton leftSlide, rightSlide;
@@ -57,6 +63,13 @@ public class DashboardActivity extends AppCompatActivity implements SlideFragmen
         setContentView(R.layout.activity_dashboard);
 
         context = this;
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
+                && ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED
+                || ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.CAMERA}, 1);
+        }
 
         leftSlide = findViewById(R.id.iBLeft);
         rightSlide = findViewById(R.id.iBRight);
@@ -78,6 +91,14 @@ public class DashboardActivity extends AppCompatActivity implements SlideFragmen
             }
             if(savedInstanceState.getString("rightArrow") != null) {
                 rightSlide.setVisibility(View.VISIBLE);
+            }
+
+            Dress dress = dressMap.get(currentSlideNumber+1);
+            if(dress == null) {
+                updateFavourite(false);
+            }else {
+                if(dress.isFavourite())
+                    updateFavourite(true);
             }
 
             mSectionsPagerAdapter.notifyDataSetChanged();
@@ -122,6 +143,15 @@ public class DashboardActivity extends AppCompatActivity implements SlideFragmen
             }
         });
 
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if(requestCode == 1){
+            if(!(grantResults[0] == PackageManager.PERMISSION_GRANTED && grantResults[1] == PackageManager.PERMISSION_GRANTED))
+                Toast.makeText(this,"You must have to give the storage permission",Toast.LENGTH_LONG).show();
+        }
     }
 
     @Override

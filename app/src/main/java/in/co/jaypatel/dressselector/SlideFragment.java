@@ -6,14 +6,18 @@ import android.content.Intent;
 import android.content.res.Configuration;
 import android.database.Cursor;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.DocumentsContract;
 import android.provider.MediaStore;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.design.widget.FloatingActionButton;
 import android.support.v4.app.Fragment;
+import android.support.v4.content.FileProvider;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -24,8 +28,12 @@ import com.squareup.picasso.Picasso;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.Observable;
 import java.util.Observer;
+import java.util.Random;
 
 import static android.app.Activity.RESULT_OK;
 
@@ -35,6 +43,7 @@ public class SlideFragment extends Fragment implements Observer {
     ImageButton topImageButton, bottomImageButton;
     Dress dress;
     TextView textViewSlideNumber;
+    FloatingActionButton fabShuffle;
 
     private static final int PICK_IMAGE = 511;
     private static final int CAPTURE_IMAGE = 512;
@@ -68,12 +77,16 @@ public class SlideFragment extends Fragment implements Observer {
         topImageButton = rootView.findViewById(R.id.imageButtonTop);
         bottomImageButton = rootView.findViewById(R.id.imageButtonBottom);
         textViewSlideNumber = rootView.findViewById(R.id.textViewSlideNumber);
+        fabShuffle = rootView.findViewById(R.id.fabShuffle);
 
         slideNo = getArguments().getInt("slide_number");
         textViewSlideNumber.setText(String.valueOf(slideNo));
 
         if(DashboardActivity.dressMap.containsKey(slideNo)) {
             loadData();
+            fabShuffle.setVisibility(View.GONE);
+        }else {
+            fabShuffle.setVisibility(View.VISIBLE);
         }
 
         topImageButton.setOnClickListener(new View.OnClickListener() {
@@ -91,6 +104,50 @@ public class SlideFragment extends Fragment implements Observer {
                 selectImage();
             }
         });
+
+        fabShuffle.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(DashboardActivity.dressMap.size() > 1) {
+                    List<String> top = new ArrayList<>();
+                    List<String> bottom = new ArrayList<>();
+
+                    for (Map.Entry<Integer, Dress> entry : DashboardActivity.dressMap.entrySet()) {
+                        Dress dress = entry.getValue();
+                        top.add(dress.getTopCloth());
+                        bottom.add(dress.getBottomCloth());
+                    }
+
+                    Random random = new Random();
+                    String topCloth = getRandomItem(random, top);
+                    String bottomCloth = getRandomItem(random, bottom);
+
+                    if (topCloth != null) {
+                        File file = new File(topCloth);
+                        Picasso.get().load(file).placeholder(R.drawable.top_cloth).into(topImageButton);
+                        dress.setTopCloth(topCloth);
+                    }
+                    if (bottomCloth != null) {
+                        File file = new File(bottomCloth);
+                        Picasso.get().load(file).placeholder(R.drawable.bottom_cloth).into(bottomImageButton);
+                        dress.setBottomCloth(bottomCloth);
+                    }
+
+                    updateDressMap();
+
+                }else if (DashboardActivity.dressMap.size() == 1) {
+                    Toast.makeText(getContext(), "To get random combination you need to add more images", Toast.LENGTH_LONG).show();
+                }else {
+                    Toast.makeText(getContext(), "Please add some images to get random combination!", Toast.LENGTH_LONG).show();
+                }
+            }
+        });
+    }
+
+    String getRandomItem(Random radom, List<String> list) {
+        int index = radom.nextInt(list.size());
+        String item = list.get(index);
+        return item;
     }
 
     void selectImage() {
@@ -128,10 +185,7 @@ public class SlideFragment extends Fragment implements Observer {
                 break;
             case CAPTURE_IMAGE: // when 'take a photo' is pressed
                 if (resultCode == RESULT_OK) {
-                    Bitmap bitmap=(Bitmap)data.getExtras().get("data");
-                    Uri uri = getImageUri(getContext(), bitmap);
-
-                    String path = getPath(getContext(), uri);
+                    String path = ChooseImageDialog.imageFilePath;
                     if (path != null) {
                         if (currentMode.equals("top")) {
                             File file = new File(path);
@@ -144,16 +198,10 @@ public class SlideFragment extends Fragment implements Observer {
                         }
                         updateDressMap();
                     }
+
                 }
                 break;
         }
-    }
-
-    public Uri getImageUri(Context inContext, Bitmap inImage) {
-        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-        inImage.compress(Bitmap.CompressFormat.JPEG, 100, bytes);
-        String path = MediaStore.Images.Media.insertImage(inContext.getContentResolver(), inImage, "Title", null);
-        return Uri.parse(path);
     }
 
     void updateDressMap() {
@@ -170,16 +218,16 @@ public class SlideFragment extends Fragment implements Observer {
         String top = dress.getTopCloth();
         String bottom = dress.getBottomCloth();
 
-        if(top != null) {
+        if (top != null) {
             File file = new File(top);
             Picasso.get().load(file).placeholder(R.drawable.top_cloth).into(topImageButton);
         }
-        if(bottom != null) {
+        if (bottom != null) {
             File file = new File(bottom);
             Picasso.get().load(file).placeholder(R.drawable.bottom_cloth).into(bottomImageButton);
         }
 
-        if(dress.isFavourite()) {
+        if (dress.isFavourite()) {
             changeFavourite(true);
         }
     }

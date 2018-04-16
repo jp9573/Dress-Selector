@@ -15,11 +15,19 @@ import android.provider.MediaStore;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.Fragment;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.content.FileProvider;
+import android.util.Log;
 import android.view.View;
 import android.view.Window;
 import android.widget.Button;
+import android.widget.ImageView;
+
 import java.io.File;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Created by jay on 14/04/18.
@@ -30,10 +38,9 @@ public class ChooseImageDialog extends Dialog {
     private Activity mActivity;
     private Fragment mFragment;
     private Context mContext;
-
+    public static String imageFilePath;
     private static int PICK_IMAGE = 511;
     private static int CAMERA_REQUEST = 512;
-    public int flag = 0;
 
     public ChooseImageDialog(Context context, Fragment fragment) {
         super(context);
@@ -54,7 +61,7 @@ public class ChooseImageDialog extends Dialog {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
                 && ContextCompat.checkSelfPermission(mContext, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED
-                && ContextCompat.checkSelfPermission(mContext, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                || ContextCompat.checkSelfPermission(mContext, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
 
             ActivityCompat.requestPermissions(mActivity, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.CAMERA}, 1);
         }
@@ -76,12 +83,43 @@ public class ChooseImageDialog extends Dialog {
         mTakeCameraImageButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE); //IMAGE CAPTURE CODE
-                mFragment.startActivityForResult(intent, CAMERA_REQUEST);
+                Intent pictureIntent = new Intent(
+                        MediaStore.ACTION_IMAGE_CAPTURE);
+                if(pictureIntent.resolveActivity(getContext().getPackageManager()) != null){
+                    //Create a file to store the image
+                    File photoFile = null;
+                    try {
+                        photoFile = createImageFile();
+                    } catch (IOException ex) {
+                        ex.printStackTrace();
+                    }
+                    if (photoFile != null) {
+                        Uri photoURI = FileProvider.getUriForFile(getContext(),"in.co.jaypatel.dressselector.ImageFileProvider", photoFile);
+                        pictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI);
+                        mFragment.startActivityForResult(pictureIntent,CAMERA_REQUEST);
+                    }
+                }
                 dismiss();
             }
         });
 
+    }
+
+    private File createImageFile() throws IOException {
+        String timeStamp =
+                new SimpleDateFormat("yyyyMMdd_HHmmss",
+                        Locale.getDefault()).format(new Date());
+        String imageFileName = "IMG_" + timeStamp + "_";
+        File storageDir =
+                getContext().getExternalFilesDir(Environment.DIRECTORY_PICTURES);
+        File image = File.createTempFile(
+                imageFileName,  /* prefix */
+                ".jpg",         /* suffix */
+                storageDir      /* directory */
+        );
+
+        imageFilePath = image.getAbsolutePath();
+        return image;
     }
 
 }
